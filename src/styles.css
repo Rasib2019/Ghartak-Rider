@@ -136,6 +136,13 @@ button.link {
   margin-top: 14px;
 }
 
+.office-note {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  margin: 6px 0 0;
+}
+
 .banner {
   background: #fdf3e3;
   color: #8a5a00;
