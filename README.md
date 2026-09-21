@@ -5,6 +5,7 @@ accept assigned orders, pick up, deliver (with delivery code and COD cash),
 and see today's earnings and cash in hand. Uses the same Supabase project as the
 Ops Portal and the Customer App.
 
+
 ## 1. Database (run once)
 
 Supabase Dashboard -> SQL Editor -> paste all of `supabase/rider_app.sql` -> Run.
