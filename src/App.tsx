@@ -42,7 +42,7 @@ type Order = {
   failure_reason: string | null;
 };
 
-type Action = "accept" | "reject" | "pickup" | "start" | "deliver" | "fail";
+type Action = "accept" | "reject" | "pickup" | "start" | "deliver";
 type Screen = "loading" | "login" | "otp" | "home" | "blocked";
 type Stage = "new" | "toPickup" | "toDeliver" | "onWay" | "done";
 
@@ -486,7 +486,6 @@ function OrderCard({
   const [open, setOpen] = useState(defaultOpen);
   const [otp, setOtp] = useState("");
   const [note, setNote] = useState("");
-  const [failing, setFailing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -502,7 +501,6 @@ function OrderCard({
       await onAct(order.id, action, extra?.otp, extra?.note);
       setOtp("");
       setNote("");
-      setFailing(false);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Action failed.");
     } finally {
@@ -623,13 +621,11 @@ function OrderCard({
               <button className="primary" disabled={busy} onClick={() => act("start")}>
                 {busy ? "Please wait…" : "Start delivery"}
               </button>
-              <button className="secondary" disabled={busy} onClick={() => setFailing(true)}>
-                Could not deliver
-              </button>
+              <p className="office-note">Can't complete this order? Call the office — it can't be reported from here.</p>
             </>
           ) : null}
 
-          {stage === "onWay" && !failing ? (
+          {stage === "onWay" ? (
             <>
               {order.requires_otp ? (
                 <>
@@ -658,31 +654,7 @@ function OrderCard({
               >
                 {busy ? "Please wait…" : cod > 0 ? `Delivered — cash ${formatPKR(cod)} collected` : "Confirm delivery"}
               </button>
-              <button className="secondary" disabled={busy} onClick={() => setFailing(true)}>
-                Could not deliver
-              </button>
-            </>
-          ) : null}
-
-          {(stage === "onWay" || stage === "toDeliver") && failing ? (
-            <>
-              <label htmlFor={`fail-${order.id}`}>Why could you not deliver?</label>
-              <textarea
-                id={`fail-${order.id}`}
-                placeholder="e.g. customer not answering the phone"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-              <button
-                className="danger"
-                disabled={busy || note.trim().length === 0}
-                onClick={() => act("fail", { note })}
-              >
-                {busy ? "Please wait…" : "Mark as failed"}
-              </button>
-              <button className="secondary" disabled={busy} onClick={() => setFailing(false)}>
-                Back
-              </button>
+              <p className="office-note">Can't complete this order? Call the office — it can't be reported from here.</p>
             </>
           ) : null}
         </div>
