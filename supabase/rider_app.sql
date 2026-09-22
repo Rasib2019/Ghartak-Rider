@@ -8,6 +8,11 @@
 -- (This also keeps orders.delivery_otp hidden from the rider.)
 -- =====================================================================
 
+-- Weight-based pricing columns on pricing_rules (safe to re-run; also in
+-- the Ops Portal repo's supabase/pricing_v2.sql — fine to run from either).
+alter table public.pricing_rules add column if not exists free_weight_kg numeric default 0;
+alter table public.pricing_rules add column if not exists per_kg_rate numeric default 0;
+
 -- Internal: checks the caller is a rider. Returns the rider's user id.
 create or replace function public._rider_guard(p_require_approved boolean default true)
 returns uuid
@@ -132,6 +137,8 @@ begin
           'distance_km', o.distance_km,
           'fare_amount', o.fare_amount,
           'cod_amount', o.cod_amount,
+          'declared_weight_kg', (o.fare_breakdown->>'declared_weight_kg')::numeric,
+          'confirmed_weight_kg', (o.fare_breakdown->>'confirmed_weight_kg')::numeric,
           'rider_earning', round(public._rider_earning(o.fare_amount, o.zone_id), 0),
           'requires_otp', (o.delivery_otp is not null),
           'failure_reason', o.failure_reason
@@ -165,11 +172,18 @@ $$;
 
 -- Move an order forward.
 -- p_action: accept | reject | pickup | start | deliver | fail
+-- p_weight_kg: optional, only used with p_action = 'pickup' — the rider's
+-- confirmed weight (kg). When given, the fare is recalculated using the
+-- zone's pricing rule (base + per-km*distance + surcharge + weight charge)
+-- and the change is recorded on the order and in the status history.
+drop function if exists public.rider_update_order(uuid, text, text, text);
+
 create or replace function public.rider_update_order(
   p_order_id uuid,
   p_action text,
   p_otp text default null,
-  p_note text default null
+  p_note text default null,
+  p_weight_kg numeric default null
 )
 returns jsonb
 language plpgsql
@@ -179,8 +193,12 @@ as $$
 declare
   uid uuid := public._rider_guard(true);
   o record;
+  pr record;
   new_status text;
   hist_reason text := null;
+  new_fare numeric;
+  new_breakdown jsonb;
+  weight_fare numeric;
 begin
   select * into o from public.orders where id = p_order_id and rider_id = uid for update;
   if not found then
@@ -199,6 +217,29 @@ begin
   elsif p_action = 'pickup' then
     if o.status::text not in ('accepted', 'arriving_pickup') then raise exception 'Accept the order first'; end if;
     new_status := 'picked_up';
+
+    if p_weight_kg is not null and p_weight_kg > 0 then
+      select * into pr from public.pricing_rules where zone_id = o.zone_id and is_active limit 1;
+      weight_fare := greatest(0, p_weight_kg - coalesce(pr.free_weight_kg, 0)) * coalesce(pr.per_kg_rate, 0);
+      new_fare := coalesce(pr.base_fare, 0)
+                + coalesce(pr.per_km_rate, 0) * coalesce(o.distance_km, 0)
+                + coalesce(pr.surcharge_amount, 0)
+                + weight_fare;
+      new_breakdown := coalesce(o.fare_breakdown, '{}'::jsonb)
+        || jsonb_build_object(
+             'confirmed_weight_kg', p_weight_kg,
+             'confirmed_weight_fare', round(weight_fare, 0),
+             'fare_recalculated_at', now()
+           );
+      if round(new_fare) <> round(coalesce(o.fare_amount, 0)) then
+        hist_reason := format(
+          'Weight confirmed at pickup: %s kg — fare updated from Rs %s to Rs %s',
+          p_weight_kg, round(coalesce(o.fare_amount, 0)), round(new_fare)
+        );
+      else
+        hist_reason := format('Weight confirmed at pickup: %s kg', p_weight_kg);
+      end if;
+    end if;
 
   elsif p_action = 'start' then
     if o.status::text <> 'picked_up' then raise exception 'Mark the order as picked up first'; end if;
@@ -225,6 +266,13 @@ begin
     update public.orders
        set status = new_status::public.order_status, rider_id = null, updated_at = now()
      where id = o.id;
+  elsif p_action = 'pickup' then
+    update public.orders
+       set status = new_status::public.order_status,
+           fare_amount = coalesce(new_fare, o.fare_amount),
+           fare_breakdown = coalesce(new_breakdown, o.fare_breakdown),
+           updated_at = now()
+     where id = o.id;
   elsif p_action = 'deliver' then
     update public.orders
        set status = new_status::public.order_status, pod_notes = nullif(trim(p_note), ''), updated_at = now()
@@ -248,7 +296,7 @@ begin
   insert into public.order_status_history (order_id, from_status, to_status, actor_id, actor_role, reason)
   values (o.id, o.status, new_status::public.order_status, uid, 'rider'::public.user_role, hist_reason);
 
-  return jsonb_build_object('status', new_status);
+  return jsonb_build_object('status', new_status, 'fare_amount', coalesce(new_fare, o.fare_amount));
 end;
 $$;
 
@@ -259,9 +307,9 @@ revoke all on function public._rider_earning(numeric, uuid) from public, anon, a
 revoke all on function public.rider_me() from public, anon;
 revoke all on function public.rider_my_orders() from public, anon;
 revoke all on function public.rider_set_online(boolean) from public, anon;
-revoke all on function public.rider_update_order(uuid, text, text, text) from public, anon;
+revoke all on function public.rider_update_order(uuid, text, text, text, numeric) from public, anon;
 
 grant execute on function public.rider_me() to authenticated;
 grant execute on function public.rider_my_orders() to authenticated;
 grant execute on function public.rider_set_online(boolean) to authenticated;
-grant execute on function public.rider_update_order(uuid, text, text, text) to authenticated;
+grant execute on function public.rider_update_order(uuid, text, text, text, numeric) to authenticated;
