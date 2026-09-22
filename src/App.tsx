@@ -37,6 +37,8 @@ type Order = {
   distance_km: number | null;
   fare_amount: number | null;
   cod_amount: number | null;
+  declared_weight_kg: number | null;
+  confirmed_weight_kg: number | null;
   rider_earning: number | null;
   requires_otp: boolean;
   failure_reason: string | null;
@@ -285,12 +287,13 @@ export default function App() {
     }
   }
 
-  async function handleAction(orderId: string, action: Action, otpValue?: string, note?: string) {
+  async function handleAction(orderId: string, action: Action, otpValue?: string, note?: string, weightKg?: number) {
     await callRpc("rider_update_order", {
       p_order_id: orderId,
       p_action: action,
       p_otp: otpValue ?? null,
       p_note: note ?? null,
+      p_weight_kg: weightKg ?? null,
     });
     await loadAll(true);
   }
@@ -481,11 +484,14 @@ function OrderCard({
 }: {
   order: Order;
   defaultOpen: boolean;
-  onAct: (orderId: string, action: Action, otp?: string, note?: string) => Promise<void>;
+  onAct: (orderId: string, action: Action, otp?: string, note?: string, weightKg?: number) => Promise<void>;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [otp, setOtp] = useState("");
   const [note, setNote] = useState("");
+  const [weightInput, setWeightInput] = useState(
+    order.declared_weight_kg != null ? String(order.declared_weight_kg) : "",
+  );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -494,11 +500,11 @@ function OrderCard({
   const phone = order.contact_phone || order.customer_phone || "";
   const contact = order.contact_name || order.customer_name || "Customer";
 
-  async function act(action: Action, extra?: { otp?: string; note?: string }) {
+  async function act(action: Action, extra?: { otp?: string; note?: string; weightKg?: number }) {
     setErr(null);
     setBusy(true);
     try {
-      await onAct(order.id, action, extra?.otp, extra?.note);
+      await onAct(order.id, action, extra?.otp, extra?.note, extra?.weightKg);
       setOtp("");
       setNote("");
     } catch (e) {
@@ -571,6 +577,18 @@ function OrderCard({
               <span>{order.category}</span>
             </div>
           ) : null}
+          {order.declared_weight_kg != null ? (
+            <div className="kv">
+              <span>Weight (customer estimate)</span>
+              <span>{order.declared_weight_kg} kg</span>
+            </div>
+          ) : null}
+          {order.confirmed_weight_kg != null ? (
+            <div className="kv">
+              <span>Weight (confirmed)</span>
+              <span>{order.confirmed_weight_kg} kg</span>
+            </div>
+          ) : null}
           {order.notes ? (
             <div className="kv">
               <span>Notes</span>
@@ -607,7 +625,19 @@ function OrderCard({
 
           {stage === "toPickup" ? (
             <>
-              <button className="primary" disabled={busy} onClick={() => act("pickup")}>
+              <label htmlFor={`weight-${order.id}`}>Confirm actual weight (kg)</label>
+              <input
+                id={`weight-${order.id}`}
+                inputMode="decimal"
+                value={weightInput}
+                onChange={(e) => setWeightInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                placeholder="e.g. 3"
+              />
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => act("pickup", { weightKg: Number(weightInput) || undefined })}
+              >
                 {busy ? "Please wait…" : "I have picked up the order"}
               </button>
               <button className="secondary" disabled={busy} onClick={reject}>
