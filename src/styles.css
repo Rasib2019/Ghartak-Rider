@@ -1,5 +1,5 @@
 :root {
-  /* GHAR TAK brand palette — same tokens as the customer app, so the rider
+  /* DropEx brand palette — same tokens as the customer app, so the rider
      app reads as part of the same product instead of a re-skinned template. */
   --accent: #f0264f;
   --accent-dark: #b81139;
