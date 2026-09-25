@@ -215,6 +215,59 @@ export default function App() {
     };
   }, [screen, loadAll]);
 
+  // ---------------------------------------------------------------------------
+  // LIVE GPS LOCATION TRACKING LOGIC (ADDED HERE)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    // صرف اس وقت لوکیشن بھیجیں جب رائڈر Home پر ہو اور Online ہو
+    if (screen !== "home" || !me || !me.is_online) return;
+
+    // پہلے ایکٹو آرڈر فائنڈ کریں
+    const activeOrder = orders.find((o) => stageOf(o.status) !== "done");
+
+    if (!navigator.geolocation) {
+      console.warn("Geolocation is not supported by this browser/device.");
+      return;
+    }
+
+    // لائیو GPS واچر انسٹال کریں
+    const watchId = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const { latitude, longitude, heading } = pos.coords;
+
+        try {
+          // Supabase 'rider_locations' ٹیبل میں پوزیشن update/upsert کریں۔
+          await supabase.from("rider_locations").upsert(
+            {
+              rider_id: me.id,
+              order_id: activeOrder ? activeOrder.id : null,
+              latitude: latitude,
+              longitude: longitude,
+              heading: heading || 0,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "rider_id" } // ہر رائڈر کی صرف 1 تازہ رو رہے گی
+          );
+        } catch (e) {
+          console.error("Location upload failed:", e);
+        }
+      },
+      (err) => {
+        console.warn("GPS error:", err.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000,
+      }
+    );
+
+    // سکرین تبدیل ہونے یا Offline ہونے پر GPS بند کریں
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [screen, me, orders]);
+
   useEffect(() => {
     if (!notice) return;
     const t = window.setTimeout(() => setNotice(null), 8000);
