@@ -1,5 +1,5 @@
 -- =====================================================================
--- GHAR TAK Rider App — secure server functions
+-- DropEx Rider App — secure server functions
 -- Run ONCE in Supabase SQL Editor (safe to re-run).
 --
 -- The rider app never reads or updates the orders table directly.
