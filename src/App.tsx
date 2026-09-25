@@ -118,7 +118,7 @@ function mapsLink(address: string): string {
 
 function friendlyLoginError(message: string): string {
   if (/signups not allowed|not allowed for otp|user not found/i.test(message)) {
-    return "This email is not registered as a rider. Please contact the GHAR TAK office.";
+    return "This email is not registered as a rider. Please contact the DropEx office.";
   }
   return message;
 }
@@ -151,8 +151,8 @@ export default function App() {
       if (m.approval_status !== "approved") {
         setBlockedMsg(
           m.approval_status === "pending"
-            ? "Your rider account is waiting for approval from the GHAR TAK office."
-            : `Your rider account is ${m.approval_status}. Please contact the GHAR TAK office.`,
+            ? "Your rider account is waiting for approval from the DropEx office."
+            : `Your rider account is ${m.approval_status}. Please contact the DropEx office.`,
         );
         setScreen("blocked");
         return;
@@ -178,7 +178,7 @@ export default function App() {
         setBlockedMsg("This account is not a rider account.");
         setScreen("blocked");
       } else if (/not active/i.test(msg)) {
-        setBlockedMsg("Your account is not active. Please contact the GHAR TAK office.");
+        setBlockedMsg("Your account is not active. Please contact the DropEx office.");
         setScreen("blocked");
       } else if (silent) {
         setLoadError(msg);
@@ -305,7 +305,7 @@ export default function App() {
   const header = (
     <div className="header">
       <div className="brand">
-        GHAR <span>TAK</span> <small>Rider</small>
+        Drop<span>Ex</span> <small>Rider</small>
       </div>
       {screen === "home" || screen === "blocked" ? (
         <button className="link" onClick={signOut}>
@@ -333,7 +333,7 @@ export default function App() {
         <div className="content">
           <div className="card">
             <h1>Rider sign in</h1>
-            <p className="hint">Enter the email the GHAR TAK office registered for you. We will send a 6-digit code.</p>
+            <p className="hint">Enter the email the DropEx office registered for you. We will send a 6-digit code.</p>
             <form onSubmit={sendOtp}>
               <label htmlFor="email">Email</label>
               <input
@@ -515,7 +515,7 @@ function OrderCard({
   }
 
   function reject() {
-    if (!window.confirm("Reject this order? It will go back to the GHAR TAK office to assign to someone else.")) return;
+    if (!window.confirm("Reject this order? It will go back to the DropEx office to assign to someone else.")) return;
     const reason = window.prompt("Reason (optional)") ?? "";
     void act("reject", { note: reason });
   }
