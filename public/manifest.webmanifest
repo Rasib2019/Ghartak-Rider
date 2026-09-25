@@ -1,9 +1,9 @@
 {
-  "name": "GHAR TAK Rider",
-  "short_name": "GT Rider",
+  "name": "DropEx Rider",
+  "short_name": "DropEx Rider",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f7f5",
-  "theme_color": "#1f6f4a",
+  "background_color": "#fff6f2",
+  "theme_color": "#b81139",
   "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }
