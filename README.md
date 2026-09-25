@@ -1,4 +1,4 @@
-# GHAR TAK — Rider App
+# DropEx — Rider App
 
 Mobile-first web app for riders: sign in with an email code, go online/offline,
 accept assigned orders, pick up, deliver (with delivery code and COD cash),
